@@ -2,6 +2,23 @@
 
 All notable changes to the UI Designer & Design-to-Code Kiro Power.
 
+## [1.0.1] - 2024-12-11
+
+### Fixed
+- Added required YAML frontmatter to POWER.md for Kiro GitHub installation compatibility
+- Fixed "No valid power found in the repository" installation error
+
+### Added
+- Comprehensive Next.js 14 examples in EXAMPLES.md
+- Next.js App Router patterns with Server/Client Components
+- Server Actions and optimistic UI examples
+- E-commerce product page implementation example
+
+### Documentation
+- Enhanced EXAMPLES.md with Next.js-specific patterns
+- Added metadata and SEO examples
+- Included TypeScript types and proper component structure
+
 ## [1.0.0] - 2024-12-11
 
 ### Added

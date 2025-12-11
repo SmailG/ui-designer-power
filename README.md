@@ -16,7 +16,7 @@ A Kiro power that combines AI-powered UI design assistance with automated design
 
 ### 🔄 Design-to-Code Conversion
 - Convert screenshots to production-ready code
-- Support for React, Vue, Svelte, Angular, and vanilla HTML/CSS
+- Support for React, Next.js, Vue, Svelte, Angular, and vanilla HTML/CSS
 - Multiple styling options (Tailwind, styled-components, CSS modules, SCSS)
 - Automatic accessibility attributes
 - Responsive design generation
@@ -175,6 +175,7 @@ You can customize these files to match your team's preferences.
 
 ### Frontend Frameworks
 - React (with TypeScript)
+- Next.js
 - Vue 3 (Composition API)
 - Svelte
 - Angular

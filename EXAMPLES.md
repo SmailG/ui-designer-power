@@ -90,7 +90,107 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 };
 ```
 
-### Example 2: Form to Vue
+### Example 2: Dashboard to Next.js
+```
+Convert this dashboard design to Next.js 14 with App Router:
+[Attach image of dashboard]
+
+Requirements:
+- Use TypeScript and Tailwind CSS
+- Server Components where possible
+- Client Components for interactive elements
+- Implement proper loading states
+- Add metadata for SEO
+- Use Next.js Image component
+```
+
+Expected output structure:
+```tsx
+// app/dashboard/page.tsx
+import { Metadata } from 'next';
+import { Suspense } from 'react';
+import { MetricsCards } from '@/components/MetricsCards';
+import { ActivityChart } from '@/components/ActivityChart';
+import { RecentActivity } from '@/components/RecentActivity';
+import { MetricsSkeleton } from '@/components/skeletons';
+
+export const metadata: Metadata = {
+  title: 'Dashboard | Analytics Platform',
+  description: 'View your analytics and performance metrics',
+};
+
+export default function DashboardPage() {
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
+      
+      <Suspense fallback={<MetricsSkeleton />}>
+        <MetricsCards />
+      </Suspense>
+      
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ActivityChart />
+        <RecentActivity />
+      </div>
+    </div>
+  );
+}
+
+// components/MetricsCards.tsx (Server Component)
+async function getMetrics() {
+  // Fetch data on server
+  const res = await fetch('https://api.example.com/metrics', {
+    next: { revalidate: 60 }
+  });
+  return res.json();
+}
+
+export async function MetricsCards() {
+  const metrics = await getMetrics();
+  
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {metrics.map((metric) => (
+        <div key={metric.id} className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-medium text-gray-600">{metric.label}</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900">{metric.value}</p>
+          <p className="mt-2 text-sm text-green-600">↑ {metric.change}%</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// components/ActivityChart.tsx (Client Component)
+'use client';
+
+import { useState } from 'react';
+import { LineChart } from '@/components/ui/LineChart';
+
+export function ActivityChart() {
+  const [timeRange, setTimeRange] = useState('7d');
+  
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">Activity Trend</h2>
+        <select 
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value)}
+          className="rounded-md border-gray-300 text-sm"
+        >
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="90d">Last 90 days</option>
+        </select>
+      </div>
+      <LineChart timeRange={timeRange} />
+    </div>
+  );
+}
+```
+
+### Example 3: Form to Vue
 ```
 Convert this login form to Vue 3 with Composition API and CSS modules:
 [Attach image of login form]
@@ -103,7 +203,7 @@ Include:
 - Form validation
 ```
 
-### Example 3: Navigation to Svelte
+### Example 4: Navigation to Svelte
 ```
 Convert this navigation bar to Svelte with Tailwind:
 [Attach image of navbar]
@@ -263,7 +363,7 @@ After creating the Gem in Google AI Studio:
 
 ## Advanced Examples
 
-### Example 1: Multi-Page Application
+### Example 1: Multi-Page Next.js Application
 ```
 Design a complete 5-page website for a restaurant:
 1. Home page with hero and menu preview
@@ -273,7 +373,33 @@ Design a complete 5-page website for a restaurant:
 5. Contact page with map
 
 Use consistent design system across all pages.
-Then convert each page to Next.js with Tailwind CSS.
+Then convert each page to Next.js 14 with:
+- App Router structure
+- TypeScript
+- Tailwind CSS
+- Server Components for static content
+- Client Components for forms and interactive elements
+- Proper metadata and SEO
+- Image optimization with next/image
+- Loading and error states
+```
+
+Expected structure:
+```
+app/
+├── layout.tsx          # Root layout with navigation
+├── page.tsx            # Home page (Server Component)
+├── menu/
+│   └── page.tsx        # Menu page with categories
+├── about/
+│   └── page.tsx        # About page
+├── reservations/
+│   └── page.tsx        # Reservations with form (Client)
+├── contact/
+│   └── page.tsx        # Contact page with map
+└── api/
+    └── reservations/
+        └── route.ts    # API route for form submission
 ```
 
 ### Example 2: Design System Creation
@@ -335,6 +461,137 @@ Take this low-fidelity wireframe and:
 2. Generate a complete design system
 3. Convert to production-ready React code
 4. Include unit tests for components
+```
+
+### Example 4: E-commerce Product Page (Next.js)
+```
+Convert this product page design to Next.js 14:
+[Attach product page screenshot]
+
+Generate:
+- Product detail page with dynamic routing (app/products/[id]/page.tsx)
+- Image gallery with zoom (Client Component)
+- Add to cart functionality
+- Related products section (Server Component)
+- Product schema markup for SEO
+- Optimistic UI updates
+- Server Actions for cart operations
+- Proper TypeScript types
+```
+
+Expected implementation:
+```tsx
+// app/products/[id]/page.tsx
+import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { ProductGallery } from '@/components/ProductGallery';
+import { AddToCartButton } from '@/components/AddToCartButton';
+import { RelatedProducts } from '@/components/RelatedProducts';
+
+interface Props {
+  params: { id: string };
+}
+
+async function getProduct(id: string) {
+  const res = await fetch(`https://api.example.com/products/${id}`, {
+    next: { revalidate: 3600 }
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const product = await getProduct(params.id);
+  if (!product) return {};
+  
+  return {
+    title: `${product.name} | Your Store`,
+    description: product.description,
+    openGraph: {
+      images: [product.images[0]],
+    },
+  };
+}
+
+export default async function ProductPage({ params }: Props) {
+  const product = await getProduct(params.id);
+  if (!product) notFound();
+  
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <ProductGallery images={product.images} />
+        
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            ${product.price}
+          </p>
+          <p className="mt-4 text-gray-600">{product.description}</p>
+          
+          <AddToCartButton productId={product.id} />
+        </div>
+      </div>
+      
+      <RelatedProducts categoryId={product.categoryId} />
+      
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Product',
+            name: product.name,
+            description: product.description,
+            image: product.images[0],
+            offers: {
+              '@type': 'Offer',
+              price: product.price,
+              priceCurrency: 'USD',
+            },
+          }),
+        }}
+      />
+    </div>
+  );
+}
+
+// components/AddToCartButton.tsx
+'use client';
+
+import { useTransition } from 'react';
+import { addToCart } from '@/app/actions/cart';
+
+export function AddToCartButton({ productId }: { productId: string }) {
+  const [isPending, startTransition] = useTransition();
+  
+  return (
+    <button
+      onClick={() => startTransition(() => addToCart(productId))}
+      disabled={isPending}
+      className="mt-6 w-full rounded-md bg-blue-600 px-6 py-3 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
+    >
+      {isPending ? 'Adding...' : 'Add to Cart'}
+    </button>
+  );
+}
+
+// app/actions/cart.ts
+'use server';
+
+import { revalidatePath } from 'next/cache';
+
+export async function addToCart(productId: string) {
+  // Add to cart logic
+  await fetch('https://api.example.com/cart', {
+    method: 'POST',
+    body: JSON.stringify({ productId }),
+  });
+  
+  revalidatePath('/cart');
+  return { success: true };
+}
+```
 ```
 
 ## Tips for Best Results

@@ -86,7 +86,7 @@ const GenerateUIDesignSchema = z.object({
 
 const DesignToCodeSchema = z.object({
     imageData: z.string().describe("Base64 encoded image data or image URL"),
-    targetFramework: z.enum(["html-css", "react", "vue", "svelte", "angular"]),
+    targetFramework: z.enum(["html-css", "react", "nextjs", "vue", "svelte", "angular"]),
     styling: z.enum(["css", "tailwind", "styled-components", "css-modules", "scss"]),
     includeAccessibility: z.boolean().optional().default(true),
 });
@@ -98,7 +98,7 @@ const AnalyzeDesignSchema = z.object({
 
 const GenerateComponentSchema = z.object({
     componentType: z.string().describe("Type of component (button, card, form, navbar, etc.)"),
-    framework: z.enum(["react", "vue", "svelte", "web-component"]),
+    framework: z.enum(["react", "vue", "nextjs", "svelte", "web-component"]),
     styling: z.enum(["css", "tailwind", "styled-components", "css-modules"]),
     props: z.record(z.any()).optional(),
 });
@@ -438,7 +438,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         },
                         targetFramework: {
                             type: "string",
-                            enum: ["html-css", "react", "vue", "svelte", "angular"],
+                            enum: ["html-css", "react", "vue", "nextjs", "svelte", "angular"],
                             description: "Target framework for code generation",
                         },
                         styling: {
@@ -486,7 +486,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         },
                         framework: {
                             type: "string",
-                            enum: ["react", "vue", "svelte", "web-component"],
+                            enum: ["react", "vue", "svelte", "nextjs", "web-component"],
                             description: "Framework to use",
                         },
                         styling: {

@@ -1,3 +1,24 @@
+---
+name: ui-designer-power
+displayName: UI Designer & Design-to-Code
+version: 1.0.0
+description: AI-powered UI design generation and design-to-code conversion using Google Gemini
+author: Smail G
+license: MIT
+keywords:
+  - ui-design
+  - design-to-code
+  - gemini
+  - figma
+  - react
+  - vue
+  - tailwind
+  - accessibility
+repository:
+  type: git
+  url: https://github.com/smailg/ui-designer-power
+---
+
 # UI Designer & Design-to-Code Power
 
 A comprehensive Kiro power that combines UI/UX design capabilities with automated design-to-code conversion, powered by Google's Gemini AI.
