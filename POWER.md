@@ -5,6 +5,8 @@ version: 1.0.1
 description: AI-powered UI design generation and design-to-code conversion using Google Gemini
 author: Smail G
 license: MIT
+homepage: https://github.com/SmailG/ui-designer-power
+repository: https://github.com/SmailG/ui-designer-power
 keywords:
   - ui-design
   - design-to-code
@@ -16,9 +18,13 @@ keywords:
   - vue
   - tailwind
   - accessibility
-repository:
-  type: git
-  url: https://github.com/smailg/ui-designer-power
+mcpServers:
+  ui-designer:
+    command: node
+    args:
+      - dist/index.js
+    env:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
 ---
 
 # UI Designer & Design-to-Code Power
