@@ -1,30 +1,12 @@
 ---
-name: ui-designer-power
-displayName: UI Designer & Design-to-Code
-version: 1.0.1
-description: AI-powered UI design generation and design-to-code conversion using Google Gemini
-author: Smail G
-license: MIT
-homepage: https://github.com/SmailG/ui-designer-power
-repository: https://github.com/SmailG/ui-designer-power
-keywords:
-  - ui-design
-  - design-to-code
-  - gemini
-  - figma
-  - react
-  - nextjs
-  - svelte
-  - vue
-  - tailwind
-  - accessibility
-mcpServers:
-  ui-designer:
-    command: node
-    args:
-      - dist/index.js
-    env:
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+name: "ui-designer-power"
+displayName: "UI Designer & Design-to-Code"
+version: "1.0.1"
+description: "AI-powered UI design generation and design-to-code conversion using Google Gemini"
+author: "Smail G"
+license: "MIT"
+repository: "https://github.com/SmailG/ui-designer-power"
+keywords: ["ui-design", "design-to-code", "gemini", "figma", "react", "nextjs", "vue", "tailwind", "accessibility"]
 ---
 
 # UI Designer & Design-to-Code Power
