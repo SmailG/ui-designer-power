@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+LABEL version="1.1.5"
+LABEL description="UI Designer & Design-to-Code Kiro Power"
+
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml tsconfig.json ./

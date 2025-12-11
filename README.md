@@ -127,10 +127,10 @@ GEMINI_GEM_ID=models/your-gem-id-here          # Custom Gem (overrides all)
 GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview  # Image generation
 GEMINI_MODEL=gemini-2.5-flash                  # Code generation
 
-# Rate Limiting Configuration (optional)
-GEMINI_MIN_REQUEST_INTERVAL=1000  # Min ms between requests (default: 1000)
-GEMINI_MAX_RETRIES=3               # Max retry attempts (default: 3)
-GEMINI_INITIAL_RETRY_DELAY=2000    # Initial retry delay in ms (default: 2000)
+# Rate Limiting Configuration (optimized for Kiro)
+GEMINI_MIN_REQUEST_INTERVAL=50   # Min ms between requests (default: 50)
+GEMINI_MAX_RETRIES=3             # Max retry attempts (default: 3)
+GEMINI_INITIAL_RETRY_DELAY=300   # Initial retry delay in ms (default: 300)
 ```
 
 **Automatic Features**:
@@ -218,11 +218,11 @@ docker push smailg/ui-designer-power:latest
 
 ### Rate Limit Errors (429 Errors)
 - The power automatically handles rate limits with exponential backoff
-- Default: 1 second minimum between requests
+- Default: 300ms minimum between requests
 - Retries up to 3 times with increasing delays (2s, 4s, 8s)
 - If you hit rate limits frequently, increase `GEMINI_MIN_REQUEST_INTERVAL`:
   ```bash
-  GEMINI_MIN_REQUEST_INTERVAL=2000  # 2 seconds between requests
+  GEMINI_MIN_REQUEST_INTERVAL=300  # 2 seconds between requests
   ```
 - Or reduce concurrent usage across multiple tools/sessions
 

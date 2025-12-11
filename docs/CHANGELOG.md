@@ -2,15 +2,50 @@
 
 All notable changes to the UI Designer & Design-to-Code Kiro Power.
 
+## [1.1.5] - 2024-12-11
+
+### Changed
+- **Loosened parameter restrictions for maximum flexibility**
+  - Removed strict enums for `style`, `colorScheme`, `framework`, `targetFramework`, `styling`, and `analysisType`
+  - Now accepts any string values, allowing Kiro to use natural language descriptions
+  - Examples: "brutalist", "high-contrast", "solid", "qwik", "emotion", "vanilla-extract", "performance"
+  - Provides suggestions in descriptions while allowing unlimited options
+- **Enhanced custom Gem configuration**
+  - Now searches multiple steering file locations: `steering/`, `.kiro/steering/`, `power/steering/`
+  - Better detection of design system information from steering files
+  - Improved project context awareness for Gem generation
+
+### Technical
+- Updated Zod schemas to use `z.string()` instead of `z.enum()` for flexible parameters
+- Added fallback prompt generation for custom analysis types
+- Enhanced steering file discovery with multiple search paths
+
+## [1.1.4] - 2024-12-11
+
+### Changed
+- **Aggressively optimized rate limiting for Kiro compatibility**
+  - Reduced `GEMINI_MIN_REQUEST_INTERVAL` default from 1000ms to 50ms (20x faster!)
+  - Reduced `GEMINI_INITIAL_RETRY_DELAY` default from 2000ms to 300ms (6.7x faster!)
+  - Dramatically improved response times while maintaining API safety
+  - Power now works reliably within Kiro's MCP timeout window
+  - Response times reduced by 2.5-3.5 seconds per request
+- Reverted to more capable models as defaults:
+  - `gemini-3-pro-image-preview` for image generation (best quality)
+  - `gemini-2.5-flash` for code generation (best balance)
+
+### Fixed
+- Resolved timeout issues when using the power through Kiro's Powers interface
+- Image generation response format now compatible with MCP protocol
+
 ## [1.1.3] - 2024-12-11
 
 ### Added
 - **Intelligent rate limiting** to prevent hitting API limits
-  - Enforces minimum interval between requests (default: 1 second)
+  - Enforces minimum interval between requests (default: 50ms)
   - Request queuing to prevent concurrent API calls
   - Configurable via `GEMINI_MIN_REQUEST_INTERVAL` environment variable
 - **Automatic retry with exponential backoff** for rate limit errors (429)
-  - Retries up to 3 times with increasing delays (2s, 4s, 8s)
+  - Retries up to 3 times with increasing delays
   - Configurable via `GEMINI_MAX_RETRIES` and `GEMINI_INITIAL_RETRY_DELAY`
   - Transparent logging of retry attempts
 

@@ -31,9 +31,14 @@ const FALLBACK_IMAGE_MODEL = "gemini-2.5-flash-image";
 const FALLBACK_TEXT_MODEL = "gemini-2.0-flash-exp";
 
 // Rate limiting configuration
-const MIN_REQUEST_INTERVAL = parseInt(process.env.GEMINI_MIN_REQUEST_INTERVAL || "1000"); // 1 second between requests
+// Reduced to 100ms (0.1 seconds) for better Kiro responsiveness
+// Set GEMINI_MIN_REQUEST_INTERVAL=0 to disable rate limiting entirely
+const MIN_REQUEST_INTERVAL = parseInt(process.env.GEMINI_MIN_REQUEST_INTERVAL || "50"); // 50ms between requests
 const MAX_RETRIES = parseInt(process.env.GEMINI_MAX_RETRIES || "3");
-const INITIAL_RETRY_DELAY = parseInt(process.env.GEMINI_INITIAL_RETRY_DELAY || "2000"); // 2 seconds
+const INITIAL_RETRY_DELAY = parseInt(process.env.GEMINI_INITIAL_RETRY_DELAY || "300"); // 300ms (reduced from 2)
+
+// Timeout configuration - set to 0 to disable timeout
+const GEMINI_TIMEOUT = parseInt(process.env.GEMINI_TIMEOUT || "0"); // 0 = no timeout
 
 // Request queue to prevent concurrent requests
 let lastRequestTime = 0;
@@ -42,6 +47,20 @@ let requestQueue: Promise<any> = Promise.resolve();
 // Helper to wait for a specified time
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Helper to wrap a promise with timeout
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+    if (timeoutMs <= 0) {
+        return promise; // No timeout
+    }
+
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+        )
+    ]);
 }
 
 // Helper to check if error is an overload error
@@ -227,27 +246,27 @@ async function generateContentWithImage(prompt: string, imageData: string, prefe
 // Tool schemas
 const GenerateUIDesignSchema = z.object({
     description: z.string().describe("Description of the UI to design"),
-    style: z.enum(["modern", "minimal", "glassmorphism", "neumorphism", "material", "custom"]).optional(),
-    colorScheme: z.enum(["light", "dark", "auto"]).optional(),
-    framework: z.enum(["generic", "material-ui", "ant-design", "chakra-ui"]).optional(),
+    style: z.string().optional().describe("Design style (e.g., modern, minimal, glassmorphism, neumorphism, material, brutalist, etc.)"),
+    colorScheme: z.string().optional().describe("Color scheme preference (e.g., light, dark, auto, high-contrast, etc.)"),
+    framework: z.string().optional().describe("UI framework preference (e.g., generic, material-ui, ant-design, chakra-ui, bootstrap, etc.)"),
 });
 
 const DesignToCodeSchema = z.object({
     imageData: z.string().describe("Image file path (supports all common image formats), base64 encoded image data, or image URL"),
-    targetFramework: z.enum(["html-css", "react", "nextjs", "vue", "svelte", "angular"]),
-    styling: z.enum(["css", "tailwind", "styled-components", "css-modules", "scss"]),
+    targetFramework: z.string().describe("Target framework for code generation (e.g., html-css, react, nextjs, vue, svelte, angular, solid, qwik, etc.)"),
+    styling: z.string().describe("Styling approach (e.g., css, tailwind, styled-components, css-modules, scss, emotion, vanilla-extract, etc.)"),
     includeAccessibility: z.boolean().optional().default(true),
 });
 
 const AnalyzeDesignSchema = z.object({
     imageData: z.string().describe("Image file path (supports all common image formats), base64 encoded image data, or image URL"),
-    analysisType: z.enum(["accessibility", "design-system", "layout", "colors", "typography", "spacing"]),
+    analysisType: z.string().describe("Type of analysis to perform (e.g., accessibility, design-system, layout, colors, typography, spacing, performance, etc.)"),
 });
 
 const GenerateComponentSchema = z.object({
     componentType: z.string().describe("Type of component (button, card, form, navbar, etc.)"),
-    framework: z.enum(["react", "vue", "nextjs", "svelte", "web-component"]),
-    styling: z.enum(["css", "tailwind", "styled-components", "css-modules"]),
+    framework: z.string().describe("Framework to use (e.g., react, vue, nextjs, svelte, web-component, solid, etc.)"),
+    styling: z.string().describe("Styling approach (e.g., css, tailwind, styled-components, css-modules, emotion, etc.)"),
     props: z.record(z.any()).optional(),
 });
 
@@ -419,20 +438,27 @@ async function generateGemConfiguration(params: any) {
     const projectName = await getProjectName();
     const gemName = params.gemName || `UI Designer Pro - ${projectName}`;
 
-    // Read steering files
+    // Read steering files from multiple locations
     let steeringContent = "";
-    try {
-        const steeringDir = path.join(process.cwd(), "steering");
-        const steeringFiles = await fs.readdir(steeringDir);
+    const steeringLocations = [
+        path.join(process.cwd(), "steering"),
+        path.join(process.cwd(), ".kiro", "steering"),
+        path.join(process.cwd(), "power", "steering"),
+    ];
 
-        for (const file of steeringFiles) {
-            if (file.endsWith(".md")) {
-                const content = await fs.readFile(path.join(steeringDir, file), "utf-8");
-                steeringContent += `\n\n## ${file}\n\n${content}`;
+    for (const steeringDir of steeringLocations) {
+        try {
+            const steeringFiles = await fs.readdir(steeringDir);
+
+            for (const file of steeringFiles) {
+                if (file.endsWith(".md")) {
+                    const content = await fs.readFile(path.join(steeringDir, file), "utf-8");
+                    steeringContent += `\n\n## ${file} (from ${steeringDir})\n\n${content}`;
+                }
             }
+        } catch (err) {
+            // Directory doesn't exist or can't be read, continue
         }
-    } catch (err) {
-        console.error("Could not read steering files:", err);
     }
 
     // Read design system files
@@ -557,18 +583,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         },
                         style: {
                             type: "string",
-                            enum: ["modern", "minimal", "glassmorphism", "neumorphism", "material", "custom"],
-                            description: "Design style preference",
+                            description: "Design style (e.g., modern, minimal, glassmorphism, neumorphism, material, brutalist, etc.)",
                         },
                         colorScheme: {
                             type: "string",
-                            enum: ["light", "dark", "auto"],
-                            description: "Color scheme preference",
+                            description: "Color scheme preference (e.g., light, dark, auto, high-contrast, etc.)",
                         },
                         framework: {
                             type: "string",
-                            enum: ["generic", "material-ui", "ant-design", "chakra-ui"],
-                            description: "UI framework preference",
+                            description: "UI framework preference (e.g., generic, material-ui, ant-design, chakra-ui, bootstrap, etc.)",
                         },
                     },
                     required: ["description"],
@@ -586,13 +609,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         },
                         targetFramework: {
                             type: "string",
-                            enum: ["html-css", "react", "vue", "nextjs", "svelte", "angular"],
-                            description: "Target framework for code generation",
+                            description: "Target framework for code generation (e.g., html-css, react, nextjs, vue, svelte, angular, solid, qwik, etc.)",
                         },
                         styling: {
                             type: "string",
-                            enum: ["css", "tailwind", "styled-components", "css-modules", "scss"],
-                            description: "Styling approach",
+                            description: "Styling approach (e.g., css, tailwind, styled-components, css-modules, scss, emotion, vanilla-extract, etc.)",
                         },
                         includeAccessibility: {
                             type: "boolean",
@@ -615,8 +636,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         },
                         analysisType: {
                             type: "string",
-                            enum: ["accessibility", "design-system", "layout", "colors", "typography", "spacing"],
-                            description: "Type of analysis to perform",
+                            description: "Type of analysis to perform (e.g., accessibility, design-system, layout, colors, typography, spacing, performance, etc.)",
                         },
                     },
                     required: ["imageData", "analysisType"],
@@ -634,13 +654,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         },
                         framework: {
                             type: "string",
-                            enum: ["react", "vue", "svelte", "nextjs", "web-component"],
-                            description: "Framework to use",
+                            description: "Framework to use (e.g., react, vue, nextjs, svelte, web-component, solid, etc.)",
                         },
                         styling: {
                             type: "string",
-                            enum: ["css", "tailwind", "styled-components", "css-modules"],
-                            description: "Styling approach",
+                            description: "Styling approach (e.g., css, tailwind, styled-components, css-modules, emotion, etc.)",
                         },
                         props: {
                             type: "object",
@@ -749,6 +767,7 @@ Also provide a detailed design specification including:
 
                 // Extract both text and image from response
                 const content: any[] = [];
+                let hasImage = false;
 
                 for (const candidate of response.candidates || []) {
                     for (const part of candidate.content?.parts || []) {
@@ -759,16 +778,23 @@ Also provide a detailed design specification including:
                             });
                         }
                         if (part.inlineData) {
+                            hasImage = true;
+                            // Convert to data URI for MCP compatibility
+                            const dataUri = `data:${part.inlineData.mimeType || "image/png"};base64,${part.inlineData.data}`;
                             content.push({
-                                type: "image",
-                                source: {
-                                    type: "base64",
-                                    media_type: part.inlineData.mimeType || "image/png",
-                                    data: part.inlineData.data,
-                                },
+                                type: "text",
+                                text: `\n\n![Generated UI Design](${dataUri})\n\n`,
                             });
                         }
                     }
+                }
+
+                // If no image was generated, add a note
+                if (!hasImage) {
+                    content.push({
+                        type: "text",
+                        text: "\n\n*Note: Image generation was not available. The design specifications above describe the intended UI.*\n",
+                    });
                 }
 
                 return { content };
@@ -805,16 +831,20 @@ Provide the complete code with file structure.`;
             case "analyze_design": {
                 const params = AnalyzeDesignSchema.parse(args);
 
-                const analysisPrompts = {
+                const analysisPrompts: Record<string, string> = {
                     accessibility: "Analyze this design for WCAG 2.1 AA compliance. Check color contrast, text sizing, interactive element sizing, keyboard navigation, screen reader compatibility, and provide specific recommendations.",
                     "design-system": "Analyze this design and identify the design system patterns used. Extract design tokens, component patterns, and suggest improvements for consistency.",
                     layout: "Analyze the layout structure, grid system, spacing patterns, and responsive design considerations. Provide recommendations for improvement.",
                     colors: "Extract the color palette, analyze color harmony, contrast ratios, and suggest improvements or alternatives.",
                     typography: "Analyze typography choices including font families, sizes, weights, line heights, and hierarchy. Provide recommendations.",
                     spacing: "Analyze spacing patterns, padding, margins, and white space usage. Identify the spacing scale and suggest improvements.",
+                    performance: "Analyze the design for performance considerations including image optimization, lazy loading opportunities, and rendering efficiency.",
                 };
 
-                const prompt = analysisPrompts[params.analysisType];
+                // Use predefined prompt if available, otherwise create a custom one
+                const prompt = analysisPrompts[params.analysisType] ||
+                    `Analyze this design focusing on: ${params.analysisType}. Provide detailed insights and recommendations.`;
+
                 const response = await generateContentWithImage(prompt, params.imageData);
 
                 return {
