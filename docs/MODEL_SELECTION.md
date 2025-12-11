@@ -256,6 +256,40 @@ Check for new models:
 - [Gemini API Docs](https://ai.google.dev/docs)
 - Power documentation updates
 
+## Automatic Fallback Strategy
+
+The power includes **automatic retry with fallback models** for reliability:
+
+### How It Works
+
+1. **Primary Request:** Uses your configured model (e.g., `gemini-3-pro-image-preview`)
+2. **Error Detection:** Detects 503/overload errors automatically
+3. **Automatic Retry:** Retries with fallback model
+4. **Transparent:** Logs fallback attempts for visibility
+
+### Fallback Models
+
+| Primary Model Type | Fallback Model |
+|-------------------|----------------|
+| Image Generation | `gemini-2.5-flash-image` |
+| Text Generation | `gemini-2.0-flash-exp` |
+| Image Analysis | `gemini-2.5-flash-image` |
+
+### Benefits
+
+- ✅ **Reliability:** Requests succeed even during high API load
+- ✅ **Automatic:** No manual intervention needed
+- ✅ **Transparent:** Logs show when fallback is used
+- ✅ **Smart:** Only retries on overload errors, not other errors
+
+### Example
+
+```
+User request → gemini-3-pro-image-preview (overloaded)
+            → Automatic retry with gemini-2.5-flash-image
+            → Success! ✅
+```
+
 ## Troubleshooting
 
 ### "Model not found" Error

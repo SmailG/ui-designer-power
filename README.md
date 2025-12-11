@@ -31,12 +31,14 @@ A Kiro power that combines AI-powered UI design assistance with automated design
 
 ### 🔄 Design-to-Code Conversion
 - Convert screenshots to production-ready code
+- **Accepts image file paths** (all common formats), base64 data, or URLs
 - Support for React, Next.js, Vue, Svelte, Angular, and vanilla HTML/CSS
 - Multiple styling options (Tailwind, styled-components, CSS modules, SCSS)
 - Automatic accessibility attributes
 - Responsive design generation
 
 ### 🔍 Design Analysis
+- **Accepts image file paths** (all common formats), base64 data, or URLs
 - Accessibility compliance checking (WCAG 2.1 AA)
 - Design system pattern extraction
 - Layout and spacing analysis
@@ -92,12 +94,20 @@ The power automatically configures itself when installed. The MCP server runs in
 
 ### Convert Design to Code
 ```
+# Option 1: Using a file path
+@ui-designer-power convert ./designs/homepage.png to React components using Tailwind CSS
+
+# Option 2: Attach an image
 @ui-designer-power convert this design screenshot to React components using Tailwind CSS
 [attach screenshot]
 ```
 
 ### Analyze Design Accessibility
 ```
+# Option 1: Using a file path
+@ui-designer-power analyze ./designs/dashboard.png for WCAG compliance
+
+# Option 2: Attach an image
 @ui-designer-power analyze this design for WCAG compliance
 [attach screenshot]
 ```
@@ -109,7 +119,7 @@ The power automatically configures itself when installed. The MCP server runs in
 
 ## Model Configuration
 
-The power uses dual models for optimal performance:
+The power uses dual models for optimal performance with automatic fallback:
 
 ```bash
 # Option 1: Use a Custom Gemini Gem (recommended after creating one)
@@ -119,6 +129,8 @@ GEMINI_GEM_ID=models/your-gem-id-here  # Overrides all other models
 GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview  # Image generation
 GEMINI_MODEL=gemini-2.5-flash                  # Code generation
 ```
+
+**Automatic Fallback**: If Gemini 3 models are overloaded (503 errors), the power automatically retries with Gemini 2.5 models to ensure reliability.
 
 ### Using a Custom Gem
 
@@ -190,10 +202,20 @@ docker push smailg/ui-designer-power:latest
 - Check that the environment variable is properly set
 - Verify you haven't exceeded API quotas
 
+### Model Overload (503 Errors)
+- The power automatically retries with fallback models (Gemini 2.5)
+- If you see "Model is overloaded" messages, the fallback is working
+- Image generation fallback: `gemini-2.5-flash-image` (supports image generation)
+- Text generation fallback: `gemini-2.0-flash-exp`
+- Consider using Gemini 2.5 models directly if Gemini 3 is consistently overloaded
+
 ### Image Processing
-- Images should be base64 encoded or accessible URLs
-- Supported formats: JPEG, PNG, WebP
+- **Accepts file paths** (relative or absolute): `./design.png`, `/path/to/image.jpg`
+- Also accepts base64 encoded data or accessible URLs
+- **Supported formats**: All common image formats (PNG, JPEG, GIF, WebP, BMP, SVG, TIFF, ICO, etc.)
+- Automatic MIME type detection using the `mime` library
 - Maximum size: 4MB recommended
+- File paths are automatically detected and read
 
 ### Code Generation Quality
 - Provide clear, detailed descriptions

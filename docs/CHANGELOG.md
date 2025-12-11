@@ -2,6 +2,29 @@
 
 All notable changes to the UI Designer & Design-to-Code Kiro Power.
 
+## [1.1.1] - 2024-12-11
+
+### Added
+- **File path support** for `design_to_code` and `analyze_design` tools
+  - Accept image file paths (relative or absolute) in addition to base64 and URLs
+  - Support for all common image formats (PNG, JPEG, GIF, WebP, BMP, SVG, TIFF, ICO, etc.)
+  - Automatic MIME type detection using the `mime` library
+- **Automatic retry with fallback models** for reliability
+  - Detects 503/overload errors from Gemini 3 models
+  - Automatically retries with Gemini 2.5 fallback models
+  - Ensures requests succeed even during high API load
+
+### Changed
+- Enhanced image input handling to detect file paths vs base64 vs URLs
+- Improved error messages for file reading failures
+- Updated documentation with file path examples
+
+### Technical
+- Added `mime` package for robust MIME type detection
+- Implemented `isOverloadError()` helper for error detection
+- Added retry logic to all generation helper functions
+- Fallback models: `gemini-2.5-flash-image` (image generation), `gemini-2.0-flash-exp` (text)
+
 ## [1.0.1] - 2024-12-11
 
 ### Fixed

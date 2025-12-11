@@ -7,6 +7,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
+import mime from "mime";
 
 const API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 if (!API_KEY) {
@@ -24,56 +25,134 @@ const CUSTOM_GEM_ID = process.env.GEMINI_GEM_ID;
 const DEFAULT_IMAGE_MODEL = CUSTOM_GEM_ID || process.env.GEMINI_IMAGE_MODEL || "gemini-3-pro-image-preview";
 const DEFAULT_TEXT_MODEL = CUSTOM_GEM_ID || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
+// Fallback models for when primary models are overloaded
+// Note: gemini-2.5-flash-image supports image generation as fallback
+const FALLBACK_IMAGE_MODEL = "gemini-2.5-flash-image";
+const FALLBACK_TEXT_MODEL = "gemini-2.0-flash-exp";
+
+// Helper to check if error is an overload error
+function isOverloadError(error: any): boolean {
+    const errorStr = JSON.stringify(error);
+    return errorStr.includes("overloaded") ||
+        errorStr.includes("UNAVAILABLE") ||
+        errorStr.includes("503") ||
+        (error?.error?.code === 503);
+}
+
 // Helper to generate content with text
-async function generateContent(prompt: string, preferredModel?: string) {
+async function generateContent(prompt: string, preferredModel?: string, retryWithFallback: boolean = true) {
     const modelName = preferredModel || DEFAULT_TEXT_MODEL;
-    const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-    });
-    return response.text;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        // If overloaded and we haven't tried fallback yet, retry with fallback model
+        if (retryWithFallback && isOverloadError(error)) {
+            console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_TEXT_MODEL}`);
+            return generateContent(prompt, FALLBACK_TEXT_MODEL, false);
+        }
+        throw error;
+    }
 }
 
 // Helper to generate UI design images
-async function generateUIImage(prompt: string, preferredModel?: string) {
+async function generateUIImage(prompt: string, preferredModel?: string, retryWithFallback: boolean = true) {
     const modelName = preferredModel || DEFAULT_IMAGE_MODEL;
-    const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-            responseModalities: ['TEXT', 'IMAGE'],
-        },
-    });
-    return response;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+                responseModalities: ['TEXT', 'IMAGE'],
+            },
+        });
+        return response;
+    } catch (error) {
+        // If overloaded and we haven't tried fallback yet, retry with fallback model
+        if (retryWithFallback && isOverloadError(error)) {
+            console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_IMAGE_MODEL}`);
+            return generateUIImage(prompt, FALLBACK_IMAGE_MODEL, false);
+        }
+        throw error;
+    }
 }
 
 // Helper to generate content with image
-async function generateContentWithImage(prompt: string, imageData: string, preferredModel?: string) {
+async function generateContentWithImage(prompt: string, imageData: string, preferredModel?: string, retryWithFallback: boolean = true) {
     const modelName = preferredModel || DEFAULT_IMAGE_MODEL;
 
-    // Prepare image data
-    const base64Data = imageData.startsWith("http")
-        ? imageData
-        : imageData.replace(/^data:image\/\w+;base64,/, "");
+    // Check if imageData is a file path
+    let base64Data: string;
+    let mimeType = "image/jpeg";
 
-    const response = await ai.models.generateContent({
-        model: modelName,
-        contents: [
-            {
-                role: "user",
-                parts: [
-                    { text: prompt },
-                    {
-                        inlineData: {
-                            mimeType: "image/jpeg",
-                            data: base64Data,
+    if (imageData.startsWith("http")) {
+        // URL - pass as is
+        base64Data = imageData;
+    } else if (imageData.startsWith("data:")) {
+        // Data URI - extract base64 and mime type
+        const match = imageData.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+            mimeType = match[1];
+            base64Data = match[2];
+        } else {
+            base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+        }
+    } else if (imageData.includes("/") || imageData.includes("\\") || imageData.match(/\.(png|jpg|jpeg|gif|webp|bmp|svg|tiff|ico)$/i)) {
+        // Looks like a file path - read the file
+        const fs = await import("fs/promises");
+
+        try {
+            const fileBuffer = await fs.readFile(imageData);
+            base64Data = fileBuffer.toString("base64");
+
+            // Detect mime type from file path using mime library
+            const detectedMimeType = mime.getType(imageData);
+            if (detectedMimeType && detectedMimeType.startsWith("image/")) {
+                mimeType = detectedMimeType;
+            } else {
+                // Fallback to jpeg if mime type detection fails or isn't an image
+                mimeType = "image/jpeg";
+            }
+        } catch (error) {
+            throw new Error(`Failed to read image file: ${imageData}. Error: ${error}`);
+        }
+    } else {
+        // Assume it's raw base64
+        base64Data = imageData;
+    }
+
+    try {
+        const response = await ai.models.generateContent({
+            model: modelName,
+            contents: [
+                {
+                    role: "user",
+                    parts: [
+                        { text: prompt },
+                        {
+                            inlineData: {
+                                mimeType: mimeType,
+                                data: base64Data,
+                            },
                         },
-                    },
-                ],
-            },
-        ],
-    });
-    return response.text;
+                    ],
+                },
+            ],
+        });
+        return response.text;
+    } catch (error) {
+        // If overloaded and we haven't tried fallback yet, retry with fallback model
+        if (retryWithFallback && isOverloadError(error)) {
+            console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_IMAGE_MODEL}`);
+            return generateContentWithImage(prompt, imageData, FALLBACK_IMAGE_MODEL, false);
+        }
+        throw error;
+    }
 }
 
 // Tool schemas
@@ -85,14 +164,14 @@ const GenerateUIDesignSchema = z.object({
 });
 
 const DesignToCodeSchema = z.object({
-    imageData: z.string().describe("Base64 encoded image data or image URL"),
+    imageData: z.string().describe("Image file path (supports all common image formats), base64 encoded image data, or image URL"),
     targetFramework: z.enum(["html-css", "react", "nextjs", "vue", "svelte", "angular"]),
     styling: z.enum(["css", "tailwind", "styled-components", "css-modules", "scss"]),
     includeAccessibility: z.boolean().optional().default(true),
 });
 
 const AnalyzeDesignSchema = z.object({
-    imageData: z.string().describe("Base64 encoded image data"),
+    imageData: z.string().describe("Image file path (supports all common image formats), base64 encoded image data, or image URL"),
     analysisType: z.enum(["accessibility", "design-system", "layout", "colors", "typography", "spacing"]),
 });
 
@@ -434,7 +513,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     properties: {
                         imageData: {
                             type: "string",
-                            description: "Base64 encoded image data or image URL",
+                            description: "Image file path (supports all common image formats), base64 encoded image data, or image URL",
                         },
                         targetFramework: {
                             type: "string",
@@ -463,7 +542,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     properties: {
                         imageData: {
                             type: "string",
-                            description: "Base64 encoded image data",
+                            description: "Image file path (supports all common image formats), base64 encoded image data, or image URL",
                         },
                         analysisType: {
                             type: "string",

@@ -40,6 +40,10 @@ Design a mobile app screen for a fitness tracker showing:
 
 ### Example 1: Simple Card to React
 ```
+# Option 1: Using a file path
+Convert ./designs/product-card.png to React with Tailwind CSS
+
+# Option 2: Attach an image
 Convert this card design to React with Tailwind CSS:
 [Attach image of a product card]
 
@@ -92,6 +96,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
 ### Example 2: Dashboard to Next.js
 ```
+# Option 1: Using a file path
+Convert /Users/john/designs/dashboard.png to Next.js 14 with App Router
+
+# Option 2: Attach an image
 Convert this dashboard design to Next.js 14 with App Router:
 [Attach image of dashboard]
 
@@ -192,6 +200,10 @@ export function ActivityChart() {
 
 ### Example 3: Form to Vue
 ```
+# Option 1: Using a file path
+Convert ./screenshots/login-form.jpg to Vue 3 with Composition API and CSS modules
+
+# Option 2: Attach an image
 Convert this login form to Vue 3 with Composition API and CSS modules:
 [Attach image of login form]
 
@@ -258,6 +270,10 @@ Create a data table component in React with:
 
 ### Example 1: Accessibility Check
 ```
+# Option 1: Using a file path
+Analyze ./designs/homepage.png for WCAG 2.1 AA compliance
+
+# Option 2: Attach an image
 Analyze this design for WCAG 2.1 AA compliance:
 [Attach design screenshot]
 
@@ -271,6 +287,10 @@ Check:
 
 ### Example 2: Design System Extraction
 ```
+# Option 1: Using a file path
+Analyze design-mockups/app-screen.png and extract the design system
+
+# Option 2: Attach an image
 Analyze this design and extract the design system:
 [Attach screenshot]
 
