@@ -2,6 +2,30 @@
 
 All notable changes to the UI Designer & Design-to-Code Kiro Power.
 
+## [1.1.3] - 2024-12-11
+
+### Added
+- **Intelligent rate limiting** to prevent hitting API limits
+  - Enforces minimum interval between requests (default: 1 second)
+  - Request queuing to prevent concurrent API calls
+  - Configurable via `GEMINI_MIN_REQUEST_INTERVAL` environment variable
+- **Automatic retry with exponential backoff** for rate limit errors (429)
+  - Retries up to 3 times with increasing delays (2s, 4s, 8s)
+  - Configurable via `GEMINI_MAX_RETRIES` and `GEMINI_INITIAL_RETRY_DELAY`
+  - Transparent logging of retry attempts
+
+### Changed
+- All API calls now go through rate limiting queue
+- Improved error detection for rate limit errors (429, RESOURCE_EXHAUSTED)
+- Better logging for rate limit and retry events
+
+### Technical
+- Added `sleep()` helper for delays
+- Added `isRateLimitError()` helper for error detection
+- Added `enforceRateLimit()` to manage request timing
+- Added `executeWithRateLimit()` wrapper for all API calls
+- Request queue prevents concurrent execution
+
 ## [1.1.2] - 2024-12-11
 
 ### Added

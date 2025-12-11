@@ -30,6 +30,20 @@ const DEFAULT_TEXT_MODEL = CUSTOM_GEM_ID || process.env.GEMINI_MODEL || "gemini-
 const FALLBACK_IMAGE_MODEL = "gemini-2.5-flash-image";
 const FALLBACK_TEXT_MODEL = "gemini-2.0-flash-exp";
 
+// Rate limiting configuration
+const MIN_REQUEST_INTERVAL = parseInt(process.env.GEMINI_MIN_REQUEST_INTERVAL || "1000"); // 1 second between requests
+const MAX_RETRIES = parseInt(process.env.GEMINI_MAX_RETRIES || "3");
+const INITIAL_RETRY_DELAY = parseInt(process.env.GEMINI_INITIAL_RETRY_DELAY || "2000"); // 2 seconds
+
+// Request queue to prevent concurrent requests
+let lastRequestTime = 0;
+let requestQueue: Promise<any> = Promise.resolve();
+
+// Helper to wait for a specified time
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Helper to check if error is an overload error
 function isOverloadError(error: any): boolean {
     const errorStr = JSON.stringify(error);
@@ -39,51 +53,104 @@ function isOverloadError(error: any): boolean {
         (error?.error?.code === 503);
 }
 
+// Helper to check if error is a rate limit error
+function isRateLimitError(error: any): boolean {
+    const errorStr = JSON.stringify(error);
+    return errorStr.includes("429") ||
+        errorStr.includes("RESOURCE_EXHAUSTED") ||
+        errorStr.includes("rate limit") ||
+        errorStr.includes("quota") ||
+        (error?.error?.code === 429);
+}
+
+// Helper to enforce rate limiting between requests
+async function enforceRateLimit(): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+
+    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+        const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+        console.error(`Rate limiting: waiting ${waitTime}ms before next request`);
+        await sleep(waitTime);
+    }
+
+    lastRequestTime = Date.now();
+}
+
+// Helper to execute a request with rate limiting and retries
+async function executeWithRateLimit<T>(
+    fn: () => Promise<T>,
+    retryCount: number = 0
+): Promise<T> {
+    // Queue the request to prevent concurrent execution
+    return requestQueue = requestQueue.then(async () => {
+        // Enforce rate limit
+        await enforceRateLimit();
+
+        try {
+            return await fn();
+        } catch (error) {
+            // Handle rate limit errors with exponential backoff
+            if (isRateLimitError(error) && retryCount < MAX_RETRIES) {
+                const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+                console.error(`Rate limit hit, retrying in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+                await sleep(delay);
+                return executeWithRateLimit(fn, retryCount + 1);
+            }
+            throw error;
+        }
+    });
+}
+
 // Helper to generate content with text
-async function generateContent(prompt: string, preferredModel?: string, retryWithFallback: boolean = true) {
+async function generateContent(prompt: string, preferredModel?: string, retryWithFallback: boolean = true): Promise<string> {
     const modelName = preferredModel || DEFAULT_TEXT_MODEL;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-        });
-        return response.text;
-    } catch (error) {
-        // If overloaded and we haven't tried fallback yet, retry with fallback model
-        if (retryWithFallback && isOverloadError(error)) {
-            console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_TEXT_MODEL}`);
-            return generateContent(prompt, FALLBACK_TEXT_MODEL, false);
+    return executeWithRateLimit(async (): Promise<string> => {
+        try {
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents: prompt,
+            });
+            return response.text || "";
+        } catch (error) {
+            // If overloaded and we haven't tried fallback yet, retry with fallback model
+            if (retryWithFallback && isOverloadError(error)) {
+                console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_TEXT_MODEL}`);
+                return await generateContent(prompt, FALLBACK_TEXT_MODEL, false);
+            }
+            throw error;
         }
-        throw error;
-    }
+    });
 }
 
 // Helper to generate UI design images
-async function generateUIImage(prompt: string, preferredModel?: string, retryWithFallback: boolean = true) {
+async function generateUIImage(prompt: string, preferredModel?: string, retryWithFallback: boolean = true): Promise<any> {
     const modelName = preferredModel || DEFAULT_IMAGE_MODEL;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-            config: {
-                responseModalities: ['TEXT', 'IMAGE'],
-            },
-        });
-        return response;
-    } catch (error) {
-        // If overloaded and we haven't tried fallback yet, retry with fallback model
-        if (retryWithFallback && isOverloadError(error)) {
-            console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_IMAGE_MODEL}`);
-            return generateUIImage(prompt, FALLBACK_IMAGE_MODEL, false);
+    return executeWithRateLimit(async () => {
+        try {
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents: prompt,
+                config: {
+                    responseModalities: ['TEXT', 'IMAGE'],
+                },
+            });
+            return response;
+        } catch (error) {
+            // If overloaded and we haven't tried fallback yet, retry with fallback model
+            if (retryWithFallback && isOverloadError(error)) {
+                console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_IMAGE_MODEL}`);
+                return generateUIImage(prompt, FALLBACK_IMAGE_MODEL, false);
+            }
+            throw error;
         }
-        throw error;
-    }
+    });
 }
 
 // Helper to generate content with image
-async function generateContentWithImage(prompt: string, imageData: string, preferredModel?: string, retryWithFallback: boolean = true) {
+async function generateContentWithImage(prompt: string, imageData: string, preferredModel?: string, retryWithFallback: boolean = true): Promise<string> {
     const modelName = preferredModel || DEFAULT_IMAGE_MODEL;
 
     // Check if imageData is a file path
@@ -126,33 +193,35 @@ async function generateContentWithImage(prompt: string, imageData: string, prefe
         base64Data = imageData;
     }
 
-    try {
-        const response = await ai.models.generateContent({
-            model: modelName,
-            contents: [
-                {
-                    role: "user",
-                    parts: [
-                        { text: prompt },
-                        {
-                            inlineData: {
-                                mimeType: mimeType,
-                                data: base64Data,
+    return executeWithRateLimit(async (): Promise<string> => {
+        try {
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            { text: prompt },
+                            {
+                                inlineData: {
+                                    mimeType: mimeType,
+                                    data: base64Data,
+                                },
                             },
-                        },
-                    ],
-                },
-            ],
-        });
-        return response.text;
-    } catch (error) {
-        // If overloaded and we haven't tried fallback yet, retry with fallback model
-        if (retryWithFallback && isOverloadError(error)) {
-            console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_IMAGE_MODEL}`);
-            return generateContentWithImage(prompt, imageData, FALLBACK_IMAGE_MODEL, false);
+                        ],
+                    },
+                ],
+            });
+            return response.text || "";
+        } catch (error) {
+            // If overloaded and we haven't tried fallback yet, retry with fallback model
+            if (retryWithFallback && isOverloadError(error)) {
+                console.error(`Model ${modelName} is overloaded, retrying with fallback model ${FALLBACK_IMAGE_MODEL}`);
+                return await generateContentWithImage(prompt, imageData, FALLBACK_IMAGE_MODEL, false);
+            }
+            throw error;
         }
-        throw error;
-    }
+    });
 }
 
 // Tool schemas

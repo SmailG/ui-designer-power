@@ -119,18 +119,25 @@ The power automatically configures itself when installed. The MCP server runs in
 
 ## Model Configuration
 
-The power uses dual models for optimal performance with automatic fallback:
+The power uses dual models for optimal performance with automatic fallback and rate limiting:
 
 ```bash
-# Option 1: Use a Custom Gemini Gem (recommended after creating one)
-GEMINI_GEM_ID=models/your-gem-id-here  # Overrides all other models
-
-# Option 2: Use default models (works out of the box)
+# Model Configuration
+GEMINI_GEM_ID=models/your-gem-id-here          # Custom Gem (overrides all)
 GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview  # Image generation
 GEMINI_MODEL=gemini-2.5-flash                  # Code generation
+
+# Rate Limiting Configuration (optional)
+GEMINI_MIN_REQUEST_INTERVAL=1000  # Min ms between requests (default: 1000)
+GEMINI_MAX_RETRIES=3               # Max retry attempts (default: 3)
+GEMINI_INITIAL_RETRY_DELAY=2000    # Initial retry delay in ms (default: 2000)
 ```
 
-**Automatic Fallback**: If Gemini 3 models are overloaded (503 errors), the power automatically retries with Gemini 2.5 models to ensure reliability.
+**Automatic Features**:
+- **Fallback**: If Gemini 3 models are overloaded (503 errors), automatically retries with Gemini 2.5 models
+- **Rate Limiting**: Enforces minimum interval between requests to prevent hitting API rate limits
+- **Exponential Backoff**: Automatically retries with increasing delays when rate limits are hit (429 errors)
+- **Request Queuing**: Prevents concurrent requests that could trigger rate limits
 
 ### Using a Custom Gem
 
@@ -208,6 +215,16 @@ docker push smailg/ui-designer-power:latest
 - Image generation fallback: `gemini-2.5-flash-image` (supports image generation)
 - Text generation fallback: `gemini-2.0-flash-exp`
 - Consider using Gemini 2.5 models directly if Gemini 3 is consistently overloaded
+
+### Rate Limit Errors (429 Errors)
+- The power automatically handles rate limits with exponential backoff
+- Default: 1 second minimum between requests
+- Retries up to 3 times with increasing delays (2s, 4s, 8s)
+- If you hit rate limits frequently, increase `GEMINI_MIN_REQUEST_INTERVAL`:
+  ```bash
+  GEMINI_MIN_REQUEST_INTERVAL=2000  # 2 seconds between requests
+  ```
+- Or reduce concurrent usage across multiple tools/sessions
 
 ### Image Processing
 - **Accepts file paths** (relative or absolute): `./design.png`, `/path/to/image.jpg`
