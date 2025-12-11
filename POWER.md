@@ -1,7 +1,7 @@
 ---
 name: ui-designer-power
 displayName: UI Designer & Design-to-Code
-version: 1.0.0
+version: 1.0.1
 description: AI-powered UI design generation and design-to-code conversion using Google Gemini
 author: Smail G
 license: MIT
@@ -11,6 +11,8 @@ keywords:
   - gemini
   - figma
   - react
+  - nextjs
+  - svelte
   - vue
   - tailwind
   - accessibility
