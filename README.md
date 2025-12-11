@@ -2,6 +2,21 @@
 
 A Kiro power that combines AI-powered UI design assistance with automated design-to-code conversion using Google's Gemini AI.
 
+## Repository Structure
+
+```
+.
+├── power/              # Kiro Power package (install this)
+│   ├── POWER.md       # Power documentation
+│   ├── mcp.json       # MCP server configuration
+│   └── steering/      # AI guidance files
+├── mcp/               # MCP server implementation
+│   ├── src/           # TypeScript source code
+│   ├── Dockerfile     # Docker image definition
+│   └── package.json   # Node.js dependencies
+└── README.md          # This file
+```
+
 ## Features
 
 ### 🎨 UI Design Generation (with Native Image Generation!)
@@ -49,36 +64,13 @@ A Kiro power that combines AI-powered UI design assistance with automated design
 
 ## Installation
 
-### Option 1: Install from GitHub (Recommended)
-
 1. Open Kiro IDE
-2. Open the Command Palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Windows/Linux)
-3. Search for "Add Power from GitHub"
-4. Enter the repository URL: `https://github.com/smailg/ui-designer-power`
-5. Kiro will automatically:
-   - Clone the repository
-   - Install dependencies with pnpm
-   - Build the project
-   - Prompt you for your Gemini API key
+2. Open the Powers panel
+3. Click "Add Power from Repository"
+4. Enter: `https://github.com/SmailG/ui-designer-power/tree/main/power`
+5. Set your `GEMINI_API_KEY` environment variable
 
-### Option 2: Manual Installation
-
-1. Clone or download this power to your Kiro powers directory
-2. Install dependencies:
-```bash
-pnpm install
-```
-
-3. Build the project:
-```bash
-pnpm run build
-```
-
-4. Configure your Gemini API key:
-```bash
-cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
-```
+The power uses a Docker container for the MCP server, so Docker must be running.
 
 ## Getting Your Gemini API Key
 
@@ -87,23 +79,9 @@ cp .env.example .env
 3. Click "Create API Key"
 4. Copy the key and add it to your `.env` file
 
-## Configuration in Kiro
+## Configuration
 
-Add this power to your Kiro MCP configuration (`.kiro/settings/mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "ui-designer-power": {
-      "command": "node",
-      "args": ["/path/to/ui-designer-power/dist/index.js"],
-      "env": {
-        "GEMINI_API_KEY": "your_api_key_here"
-      }
-    }
-  }
-}
-```
+The power automatically configures itself when installed. The MCP server runs in a Docker container (`smailg/ui-designer-power:latest`).
 
 ## Usage Examples
 
@@ -196,15 +174,13 @@ You can customize these files to match your team's preferences.
 
 ## Development
 
+See `mcp/README.md` for MCP server development instructions.
+
+To rebuild and publish the Docker image:
 ```bash
-# Install dependencies
-pnpm install
-
-# Build
-pnpm run build
-
-# Watch mode for development
-pnpm run dev
+cd mcp
+docker build -t smailg/ui-designer-power:latest .
+docker push smailg/ui-designer-power:latest
 ```
 
 ## Troubleshooting
