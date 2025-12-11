@@ -2,7 +2,7 @@
 
 All notable changes to the UI Designer & Design-to-Code Kiro Power.
 
-## [1.1.1] - 2024-12-11
+## [1.1.2] - 2024-12-11
 
 ### Added
 - **File path support** for `design_to_code` and `analyze_design` tools
