@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "ui-designer": {
+            "command": "node",
+            "args": [
+                "dist/index.js"
+            ],
+            "env": {
+                "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+            }
+        }
+    }
+}
