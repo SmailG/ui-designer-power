@@ -2,7 +2,6 @@ node_modules/
 dist/
 .env
 .env.local
-.env.example
 .kiro/
 *.log
 .DS_Store
@@ -10,12 +9,3 @@ dist/
 *.swo
 .vscode/
 .idea/
-.git/
-.gitignore
-.npmrc
-package.json
-pnpm-lock.yaml
-tsconfig.json
-kiro-power.json
-scripts/
-src/
