@@ -2,6 +2,9 @@
 
 Standards and preferences for generating code from designs.
 
+> **Note:** This power uses Gemini 2.5 Flash for fast, high-quality code generation.
+> For UI design mockups, it uses Gemini 3 Pro Image Preview to create actual images.
+
 ## General Principles
 
 1. **Semantic HTML**: Use appropriate HTML5 elements

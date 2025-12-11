@@ -5,7 +5,7 @@ import {
     CallToolRequestSchema,
     ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 const API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -14,7 +14,67 @@ if (!API_KEY) {
     process.exit(1);
 }
 
-const genAI = new GoogleGenerativeAI(API_KEY);
+const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+// Model selection - use the best available models
+// gemini-3-pro-image-preview for UI design generation (most advanced, creates actual images)
+// gemini-2.5-flash for text-based code generation and analysis
+// Support custom Gemini Gems via GEMINI_GEM_ID
+const CUSTOM_GEM_ID = process.env.GEMINI_GEM_ID;
+const DEFAULT_IMAGE_MODEL = CUSTOM_GEM_ID || process.env.GEMINI_IMAGE_MODEL || "gemini-3-pro-image-preview";
+const DEFAULT_TEXT_MODEL = CUSTOM_GEM_ID || process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+// Helper to generate content with text
+async function generateContent(prompt: string, preferredModel?: string) {
+    const modelName = preferredModel || DEFAULT_TEXT_MODEL;
+    const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+    });
+    return response.text;
+}
+
+// Helper to generate UI design images
+async function generateUIImage(prompt: string, preferredModel?: string) {
+    const modelName = preferredModel || DEFAULT_IMAGE_MODEL;
+    const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+            responseModalities: ['TEXT', 'IMAGE'],
+        },
+    });
+    return response;
+}
+
+// Helper to generate content with image
+async function generateContentWithImage(prompt: string, imageData: string, preferredModel?: string) {
+    const modelName = preferredModel || DEFAULT_IMAGE_MODEL;
+
+    // Prepare image data
+    const base64Data = imageData.startsWith("http")
+        ? imageData
+        : imageData.replace(/^data:image\/\w+;base64,/, "");
+
+    const response = await ai.models.generateContent({
+        model: modelName,
+        contents: [
+            {
+                role: "user",
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: "image/jpeg",
+                            data: base64Data,
+                        },
+                    },
+                ],
+            },
+        ],
+    });
+    return response.text;
+}
 
 // Tool schemas
 const GenerateUIDesignSchema = z.object({
@@ -42,6 +102,283 @@ const GenerateComponentSchema = z.object({
     styling: z.enum(["css", "tailwind", "styled-components", "css-modules"]),
     props: z.record(z.any()).optional(),
 });
+
+const CreateGemSchema = z.object({
+    designSystemFiles: z.array(z.string()).optional().describe("Paths to design system files to include"),
+    codebaseExamples: z.array(z.string()).optional().describe("Paths to example code files"),
+    customInstructions: z.string().optional().describe("Additional custom instructions for the Gem"),
+    gemName: z.string().optional().default("UI Designer Pro").describe("Name for the custom Gem"),
+    autoDetect: z.boolean().optional().default(true).describe("Automatically detect design system and code files"),
+});
+
+const RegenerateGemSchema = z.object({
+    reason: z.string().optional().describe("Reason for regeneration (e.g., 'rebranding', 'tech switch', 'design system update')"),
+});
+
+// Helper functions
+async function autoDetectFiles() {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+
+    const designSystemFiles: string[] = [];
+    const codebaseExamples: string[] = [];
+
+    try {
+        // Common design system file locations
+        const designSystemPaths = [
+            "design-system",
+            "docs/design-system",
+            "design",
+            "styles/design-system",
+        ];
+
+        for (const dsPath of designSystemPaths) {
+            try {
+                const files = await fs.readdir(dsPath);
+                for (const file of files) {
+                    if (file.endsWith(".md")) {
+                        designSystemFiles.push(path.join(dsPath, file));
+                    }
+                }
+            } catch {
+                // Directory doesn't exist, continue
+            }
+        }
+
+        // Common component file locations
+        const componentPaths = [
+            "src/components",
+            "components",
+            "src/ui",
+            "ui",
+        ];
+
+        for (const compPath of componentPaths) {
+            try {
+                const files = await fs.readdir(compPath);
+                // Get first 5 component files as examples
+                const componentFiles = files
+                    .filter(f => f.endsWith(".tsx") || f.endsWith(".ts") || f.endsWith(".jsx") || f.endsWith(".js"))
+                    .slice(0, 5);
+
+                for (const file of componentFiles) {
+                    codebaseExamples.push(path.join(compPath, file));
+                }
+
+                if (codebaseExamples.length > 0) break; // Found components, stop searching
+            } catch {
+                // Directory doesn't exist, continue
+            }
+        }
+    } catch (error) {
+        console.error("Error auto-detecting files:", error);
+    }
+
+    return { designSystemFiles, codebaseExamples };
+}
+
+async function getProjectName() {
+    try {
+        const fs = await import("fs/promises");
+        const packageJson = await fs.readFile("package.json", "utf-8");
+        const pkg = JSON.parse(packageJson);
+        return pkg.name || "Project";
+    } catch {
+        // Try to get from git
+        try {
+            const { execSync } = await import("child_process");
+            const repoUrl = execSync("git config --get remote.origin.url", { encoding: "utf-8" }).trim();
+            const match = repoUrl.match(/\/([^\/]+?)(\.git)?$/);
+            return match ? match[1] : "Project";
+        } catch {
+            return "Project";
+        }
+    }
+}
+
+async function saveGemConfig(config: any) {
+    try {
+        const fs = await import("fs/promises");
+        const path = await import("path");
+
+        const configDir = path.join(process.cwd(), ".kiro");
+        await fs.mkdir(configDir, { recursive: true });
+
+        await fs.writeFile(
+            path.join(configDir, "gem-config.json"),
+            JSON.stringify(config, null, 2)
+        );
+    } catch (error) {
+        console.error("Error saving gem config:", error);
+    }
+}
+
+async function loadGemConfig() {
+    try {
+        const fs = await import("fs/promises");
+        const path = await import("path");
+
+        const configPath = path.join(process.cwd(), ".kiro", "gem-config.json");
+        const content = await fs.readFile(configPath, "utf-8");
+        return JSON.parse(content);
+    } catch {
+        return null;
+    }
+}
+
+// Load project context from gem config to enhance prompts
+async function getProjectContext(): Promise<string> {
+    const config = await loadGemConfig();
+    if (!config) return "";
+
+    let context = `\n\n## Project Context\n`;
+    context += `Project: ${config.projectName || "Unknown"}\n`;
+
+    if (config.designSystemFiles && config.designSystemFiles.length > 0) {
+        context += `Design System Files: ${config.designSystemFiles.length} files detected\n`;
+    }
+
+    if (config.codebaseExamples && config.codebaseExamples.length > 0) {
+        context += `Component Examples: ${config.codebaseExamples.length} files detected\n`;
+    }
+
+    if (config.customInstructions) {
+        context += `\nCustom Instructions:\n${config.customInstructions}\n`;
+    }
+
+    return context;
+}
+
+async function generateGemConfiguration(params: any) {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+
+    // Auto-detect files if enabled
+    let designSystemFiles = params.designSystemFiles || [];
+    let codebaseExamples = params.codebaseExamples || [];
+
+    if (params.autoDetect) {
+        const detected = await autoDetectFiles();
+        if (designSystemFiles.length === 0) {
+            designSystemFiles = detected.designSystemFiles;
+        }
+        if (codebaseExamples.length === 0) {
+            codebaseExamples = detected.codebaseExamples;
+        }
+    }
+
+    // Get project name for Gem name
+    const projectName = await getProjectName();
+    const gemName = params.gemName || `UI Designer Pro - ${projectName}`;
+
+    // Read steering files
+    let steeringContent = "";
+    try {
+        const steeringDir = path.join(process.cwd(), "steering");
+        const steeringFiles = await fs.readdir(steeringDir);
+
+        for (const file of steeringFiles) {
+            if (file.endsWith(".md")) {
+                const content = await fs.readFile(path.join(steeringDir, file), "utf-8");
+                steeringContent += `\n\n## ${file}\n\n${content}`;
+            }
+        }
+    } catch (err) {
+        console.error("Could not read steering files:", err);
+    }
+
+    // Read design system files
+    let designSystemContent = "";
+    if (designSystemFiles.length > 0) {
+        for (const filePath of designSystemFiles) {
+            try {
+                const content = await fs.readFile(filePath, "utf-8");
+                designSystemContent += `\n\n## ${filePath}\n\n${content}`;
+            } catch (err) {
+                console.error(`Could not read ${filePath}:`, err);
+            }
+        }
+    }
+
+    // Read codebase examples
+    let codebaseContent = "";
+    if (codebaseExamples.length > 0) {
+        for (const filePath of codebaseExamples) {
+            try {
+                const content = await fs.readFile(filePath, "utf-8");
+                codebaseContent += `\n\n## ${filePath}\n\n\`\`\`\n${content}\n\`\`\``;
+            } catch (err) {
+                console.error(`Could not read ${filePath}:`, err);
+            }
+        }
+    }
+
+    const prompt = `You are an AI assistant helping to create a custom Gemini Gem configuration for UI design and code generation.
+
+Based on the following information, generate a comprehensive Gem configuration including:
+1. System instructions for the Gem
+2. Training examples (prompt/response pairs)
+3. Knowledge base content
+4. Recommended settings
+
+**Gem Name:** ${gemName}
+
+**Steering Files (Best Practices):**
+${steeringContent}
+
+**Design System Files:**
+${designSystemContent || "No design system files provided"}
+
+**Codebase Examples:**
+${codebaseContent || "No codebase examples provided"}
+
+**Custom Instructions:**
+${params.customInstructions || "None provided"}
+
+**Auto-detected files:**
+- Design system files: ${designSystemFiles.join(", ") || "none"}
+- Code examples: ${codebaseExamples.join(", ") || "none"}
+
+Generate a complete Gem configuration that includes:
+
+1. **System Instructions**: Comprehensive instructions for the Gem that incorporate the steering files, design system, and coding patterns from the examples.
+
+2. **Training Examples**: At least 5 example prompt/response pairs that demonstrate:
+   - Generating UI designs in the user's style
+   - Converting designs to code using their patterns
+   - Analyzing designs according to their standards
+   - Generating components following their conventions
+
+3. **Knowledge Base**: Structured knowledge from the steering files and design system.
+
+4. **Implementation Guide**: Step-by-step instructions for creating this Gem in Google AI Studio.
+
+5. **Testing Prompts**: 5 prompts to test the Gem after creation.
+
+Format the output as a comprehensive guide that the user can follow to create their custom Gem.`;
+
+    const response = await generateContent(prompt);
+
+    // Save configuration for regeneration
+    await saveGemConfig({
+        gemName,
+        designSystemFiles,
+        codebaseExamples,
+        customInstructions: params.customInstructions,
+        generatedAt: new Date().toISOString(),
+        projectName,
+    });
+
+    return {
+        response,
+        gemName,
+        filesAnalyzed: {
+            steering: steeringContent ? "✅" : "❌",
+            designSystem: designSystemFiles.length,
+            codeExamples: codebaseExamples.length,
+        },
+    };
+}
 
 // Server setup
 const server = new Server(
@@ -165,6 +502,60 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ["componentType", "framework", "styling"],
                 },
             },
+            {
+                name: "create_custom_gem",
+                description: "Create or update a custom Gemini Gem trained on your design system, codebase, and steering files",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        designSystemFiles: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "Paths to design system files to include",
+                        },
+                        codebaseExamples: {
+                            type: "array",
+                            items: { type: "string" },
+                            description: "Paths to example code files from your codebase",
+                        },
+                        customInstructions: {
+                            type: "string",
+                            description: "Additional custom instructions for the Gem",
+                        },
+                        gemName: {
+                            type: "string",
+                            description: "Name for the custom Gem",
+                            default: "UI Designer Pro",
+                        },
+                        autoDetect: {
+                            type: "boolean",
+                            description: "Automatically detect design system and code files",
+                            default: true,
+                        },
+                    },
+                },
+            },
+            {
+                name: "regenerate_gem",
+                description: "Regenerate your custom Gemini Gem (use after design system changes, rebranding, or tech stack updates)",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        reason: {
+                            type: "string",
+                            description: "Reason for regeneration (e.g., 'rebranding', 'tech switch', 'design system update')",
+                        },
+                    },
+                },
+            },
+            {
+                name: "show_gem_config",
+                description: "Show the current custom Gem configuration",
+                inputSchema: {
+                    type: "object",
+                    properties: {},
+                },
+            },
         ],
     };
 });
@@ -177,61 +568,66 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         switch (name) {
             case "generate_ui_design": {
                 const params = GenerateUIDesignSchema.parse(args);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
-                const prompt = `You are an expert UI/UX designer. Generate a detailed UI design specification for:
+                // Load project context to enhance the prompt
+                const projectContext = await getProjectContext();
+
+                const prompt = `Create a professional UI design mockup for:
 
 ${params.description}
 
 Style: ${params.style || "modern"}
 Color Scheme: ${params.colorScheme || "light"}
 Framework: ${params.framework || "generic"}
+${projectContext}
 
-Provide:
+Generate a high-fidelity UI mockup image showing:
+- Complete layout with all UI components
+- Proper spacing and alignment
+- Color scheme applied
+- Typography hierarchy
+- Interactive elements (buttons, forms, navigation)
+- Responsive design considerations
+
+Also provide a detailed design specification including:
 1. Layout structure and component hierarchy
 2. Color palette with hex codes
-3. Typography recommendations (fonts, sizes, weights)
+3. Typography recommendations
 4. Spacing and sizing guidelines
-5. Interactive elements and states
-6. Responsive breakpoints
-7. Accessibility considerations
-8. Design tokens in JSON format
+5. Interactive element states
+6. Accessibility considerations`;
 
-Format the response as a comprehensive design specification.`;
+                const response = await generateUIImage(prompt, DEFAULT_IMAGE_MODEL);
 
-                const result = await model.generateContent(prompt);
-                const response = result.response.text();
+                // Extract both text and image from response
+                const content: any[] = [];
 
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: response,
-                        },
-                    ],
-                };
+                for (const candidate of response.candidates || []) {
+                    for (const part of candidate.content?.parts || []) {
+                        if (part.text) {
+                            content.push({
+                                type: "text",
+                                text: part.text,
+                            });
+                        }
+                        if (part.inlineData) {
+                            content.push({
+                                type: "image",
+                                source: {
+                                    type: "base64",
+                                    media_type: part.inlineData.mimeType || "image/png",
+                                    data: part.inlineData.data,
+                                },
+                            });
+                        }
+                    }
+                }
+
+                return { content };
             }
 
             case "design_to_code": {
                 const params = DesignToCodeSchema.parse(args);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-
-                let imagePart;
-                if (params.imageData.startsWith("http")) {
-                    imagePart = {
-                        fileData: {
-                            fileUri: params.imageData,
-                            mimeType: "image/jpeg",
-                        },
-                    };
-                } else {
-                    imagePart = {
-                        inlineData: {
-                            data: params.imageData.replace(/^data:image\/\w+;base64,/, ""),
-                            mimeType: "image/jpeg",
-                        },
-                    };
-                }
 
                 const prompt = `You are an expert frontend developer. Convert this design to ${params.targetFramework} code using ${params.styling}.
 
@@ -246,8 +642,7 @@ Requirements:
 
 Provide the complete code with file structure.`;
 
-                const result = await model.generateContent([prompt, imagePart]);
-                const response = result.response.text();
+                const response = await generateContentWithImage(prompt, params.imageData);
 
                 return {
                     content: [
@@ -261,14 +656,6 @@ Provide the complete code with file structure.`;
 
             case "analyze_design": {
                 const params = AnalyzeDesignSchema.parse(args);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-
-                const imagePart = {
-                    inlineData: {
-                        data: params.imageData.replace(/^data:image\/\w+;base64,/, ""),
-                        mimeType: "image/jpeg",
-                    },
-                };
 
                 const analysisPrompts = {
                     accessibility: "Analyze this design for WCAG 2.1 AA compliance. Check color contrast, text sizing, interactive element sizing, keyboard navigation, screen reader compatibility, and provide specific recommendations.",
@@ -280,8 +667,7 @@ Provide the complete code with file structure.`;
                 };
 
                 const prompt = analysisPrompts[params.analysisType];
-                const result = await model.generateContent([prompt, imagePart]);
-                const response = result.response.text();
+                const response = await generateContentWithImage(prompt, params.imageData);
 
                 return {
                     content: [
@@ -295,7 +681,6 @@ Provide the complete code with file structure.`;
 
             case "generate_component": {
                 const params = GenerateComponentSchema.parse(args);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
                 const propsStr = params.props ? JSON.stringify(params.props, null, 2) : "{}";
                 const prompt = `Generate a ${params.componentType} component in ${params.framework} using ${params.styling}.
@@ -315,14 +700,197 @@ Requirements:
 
 Provide complete, production-ready code.`;
 
-                const result = await model.generateContent(prompt);
-                const response = result.response.text();
+                const response = await generateContent(prompt);
 
                 return {
                     content: [
                         {
                             type: "text",
                             text: response,
+                        },
+                    ],
+                };
+            }
+
+            case "create_custom_gem": {
+                const params = CreateGemSchema.parse(args);
+                const result = await generateGemConfiguration(params);
+
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: `# Custom Gem Configuration Generated! 🎉
+
+**Gem Name:** ${result.gemName}
+
+**Files Analyzed:**
+- Steering files: ${result.filesAnalyzed.steering}
+- Design system files: ${result.filesAnalyzed.designSystem}
+- Code examples: ${result.filesAnalyzed.codeExamples}
+
+---
+
+${result.response}
+
+---
+
+**💾 Configuration Saved**
+
+Your Gem configuration has been saved to \`.kiro/gem-config.json\`.
+
+You can regenerate this Gem anytime by running:
+\`\`\`
+Regenerate my custom Gem
+\`\`\`
+
+This is useful after:
+- Design system changes
+- Rebranding
+- Tech stack updates
+- Adding new components or patterns
+`,
+                        },
+                    ],
+                };
+            }
+
+            case "show_gem_config": {
+                const savedConfig = await loadGemConfig();
+
+                if (!savedConfig) {
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: `# No Gem Configuration Found
+
+No custom Gem configuration exists yet.
+
+**To create it:**
+\`\`\`
+Create my custom Gemini Gem
+\`\`\`
+`,
+                            },
+                        ],
+                    };
+                }
+
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: `# Custom Gem Configuration
+
+**Gem Name:** ${savedConfig.gemName}
+**Project:** ${savedConfig.projectName}
+**Created:** ${new Date(savedConfig.generatedAt).toLocaleString()}
+
+## Design System Files (${savedConfig.designSystemFiles?.length || 0})
+${savedConfig.designSystemFiles?.length > 0
+                                    ? savedConfig.designSystemFiles.map((f: string) => `- ${f}`).join("\n")
+                                    : "None detected"}
+
+## Code Examples (${savedConfig.codebaseExamples?.length || 0})
+${savedConfig.codebaseExamples?.length > 0
+                                    ? savedConfig.codebaseExamples.map((f: string) => `- ${f}`).join("\n")
+                                    : "None detected"}
+
+**Configuration File:** \`.kiro/gem-config.json\`
+
+**To regenerate:** Type "Regenerate my custom Gem"
+`,
+                        },
+                    ],
+                };
+            }
+
+            case "regenerate_gem": {
+                const params = RegenerateGemSchema.parse(args);
+
+                // Load previous configuration
+                const savedConfig = await loadGemConfig();
+
+                if (!savedConfig) {
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: `# No Previous Gem Configuration Found
+
+It looks like you haven't created a custom Gem yet, or the configuration file is missing.
+
+**To create it now:**
+\`\`\`
+Create my custom Gemini Gem
+\`\`\`
+
+This will automatically:
+- Scan your steering files
+- Detect your design system files
+- Analyze your component examples
+- Generate a complete Gem configuration
+- Save it for future regeneration
+
+**Or check if configuration exists:**
+\`\`\`
+Show my Gem configuration
+\`\`\`
+`,
+                            },
+                        ],
+                    };
+                }
+
+                // Regenerate with saved configuration
+                const result = await generateGemConfiguration({
+                    designSystemFiles: savedConfig.designSystemFiles,
+                    codebaseExamples: savedConfig.codebaseExamples,
+                    customInstructions: savedConfig.customInstructions,
+                    gemName: savedConfig.gemName,
+                    autoDetect: true, // Re-detect files in case new ones were added
+                });
+
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: `# Custom Gem Regenerated! 🔄
+
+**Reason:** ${params.reason || "Manual regeneration"}
+**Gem Name:** ${result.gemName}
+**Previous Generation:** ${new Date(savedConfig.generatedAt).toLocaleString()}
+**Current Generation:** ${new Date().toLocaleString()}
+
+**Files Analyzed:**
+- Steering files: ${result.filesAnalyzed.steering}
+- Design system files: ${result.filesAnalyzed.designSystem}
+- Code examples: ${result.filesAnalyzed.codeExamples}
+
+---
+
+${result.response}
+
+---
+
+**💾 Configuration Updated**
+
+Your Gem configuration has been updated in \`.kiro/gem-config.json\`.
+
+**Next Steps:**
+1. Copy the configuration above
+2. Go to [Google AI Studio](https://aistudio.google.com/)
+3. Update your existing Gem or create a new one
+4. Test with the provided prompts
+
+**When to Regenerate:**
+- After design system changes
+- After rebranding
+- After tech stack updates
+- When adding new components or patterns
+- When updating coding standards
+`,
                         },
                     ],
                 };

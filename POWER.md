@@ -26,12 +26,24 @@ This power provides two integrated workflows:
 - Tailwind CSS / styled-components support
 - Accessibility attributes generation
 
+### Custom Gem Creation
+- Automatically create a custom Gemini Gem trained on your codebase
+- Scan and incorporate your design system files
+- Learn from your code examples and patterns
+- Use steering files for best practices
+- Generate complete Gem configuration for Google AI Studio
+- Get implementation guide and testing prompts
+
 ## Integration with Google Gemini
 
-This power is designed to work with:
-- **Gemini 2.0 Flash**: For fast design analysis and code generation
-- **Custom Gemini Gem**: Fine-tuned for UI/UX patterns and code generation
-- **Vision capabilities**: For analyzing design screenshots and mockups
+This power uses the latest Gemini models with native image generation:
+- **Image Generation: Gemini 3 Pro Image Preview** - Advanced UI mockup generation with thinking
+- **Code Generation: Gemini 2.5 Flash** - Fast, high-quality code generation
+- **Configurable**: Set `GEMINI_IMAGE_MODEL` and `GEMINI_MODEL` environment variables
+- **Custom Gemini Gem**: Optional fine-tuning for your specific patterns
+- **Native image generation**: Creates actual UI mockup images, not just descriptions
+
+See [MODEL_SELECTION.md](MODEL_SELECTION.md) for detailed model comparison.
 
 ## Usage
 
@@ -49,6 +61,26 @@ Convert this design screenshot to React components using Tailwind CSS
 ```
 Improve the accessibility of this component and suggest WCAG AA compliant alternatives
 ```
+
+### Create a Custom Gem (Automatic!)
+```
+Create my custom Gemini Gem
+```
+The power automatically:
+- Scans steering files
+- Detects design system files
+- Finds component examples
+- Names it after your project: "UI Designer Pro - [YourProject]"
+
+### Regenerate After Changes
+```
+Regenerate my custom Gem
+```
+Use after:
+- Design system updates
+- Rebranding
+- Tech stack changes
+- New components added
 
 ## Configuration
 

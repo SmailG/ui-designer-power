@@ -196,6 +196,71 @@ Provide:
 - Improvement suggestions
 ```
 
+## Custom Gem Creation Examples
+
+### Example 1: Basic Gem Creation
+```
+Create a custom Gemini Gem based on my design system and codebase
+```
+
+The power will:
+1. Scan all steering files in `steering/` directory
+2. Generate system instructions incorporating your best practices
+3. Create training examples based on your patterns
+4. Provide a complete implementation guide
+
+### Example 2: Gem with Specific Files
+```
+Create a custom Gem using these files:
+- Design system: docs/design-system.md
+- Code examples: src/components/Button.tsx, src/components/Card.tsx, src/utils/theme.ts
+- Custom instructions: Our team uses Chakra UI and follows strict accessibility guidelines
+```
+
+### Example 3: Gem for Enterprise Design System
+```
+Create a custom Gem with:
+- Design system files: design-system/colors.md, design-system/typography.md, design-system/components.md
+- Codebase examples: src/components/*.tsx
+- Custom instructions: Generate code that follows our enterprise security standards and uses our internal component library
+```
+
+### What You Get
+
+The `create_custom_gem` tool generates:
+
+1. **System Instructions**: Comprehensive instructions that incorporate:
+   - Your steering files (UI patterns, code rules, design systems)
+   - Your design system documentation
+   - Coding patterns from your examples
+   - Your custom requirements
+
+2. **Training Examples**: 5+ prompt/response pairs showing:
+   - How to generate designs in your style
+   - How to convert designs using your patterns
+   - How to analyze designs per your standards
+   - How to generate components following your conventions
+
+3. **Knowledge Base**: Structured knowledge extracted from your files
+
+4. **Implementation Guide**: Step-by-step instructions for creating the Gem in Google AI Studio
+
+5. **Testing Prompts**: 5 prompts to verify your Gem works correctly
+
+### Using Your Custom Gem
+
+After creating the Gem in Google AI Studio:
+
+1. Get your Gem's model ID (e.g., `models/gemini-1.5-pro-exp-0827`)
+2. Update `src/index.ts` to use your Gem:
+   ```typescript
+   const model = genAI.getGenerativeModel({ 
+     model: "models/your-gem-id-here"
+   });
+   ```
+3. Rebuild: `pnpm run build`
+4. Your power now uses YOUR custom-trained Gem!
+
 ## Advanced Examples
 
 ### Example 1: Multi-Page Application

@@ -2,6 +2,9 @@
 
 Common UI patterns and best practices for the UI Designer power.
 
+> **Note:** This power uses Gemini 3 Pro Image Preview to generate actual UI mockup images.
+> When generating designs, you'll receive both visual mockups and detailed specifications.
+
 ## Layout Patterns
 
 ### Dashboard Layout

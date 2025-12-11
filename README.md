@@ -4,9 +4,12 @@ A Kiro power that combines AI-powered UI design assistance with automated design
 
 ## Features
 
-### 🎨 UI Design Generation
-- Generate complete UI designs from text descriptions
+### 🎨 UI Design Generation (with Native Image Generation!)
+- **Generate actual UI mockup images** using Gemini 3 Pro Image Preview
+- Returns high-fidelity visual mockups + design specifications
 - Support for multiple design styles (modern, minimal, glassmorphism, etc.)
+- Multiple aspect ratios (1:1, 16:9, 21:9, etc.)
+- Multiple resolutions (1K, 2K, 4K)
 - Design system recommendations
 - Color palette generation
 - Typography and spacing guidelines
@@ -28,6 +31,18 @@ A Kiro power that combines AI-powered UI design assistance with automated design
 ### 🧩 Component Generation
 - Generate individual UI components
 - Framework-specific implementations
+- TypeScript support
+- Prop types and interfaces
+- Usage examples included
+
+### 🤖 Automatic Custom Gem Creation (NEW!)
+- **Zero-configuration setup** - Works automatically on install
+- **Auto-detects** your design system and component files
+- **Project-specific naming** - "UI Designer Pro - [YourProject]"
+- **One-command creation** - Just say "Create my custom Gemini Gem"
+- **Easy regeneration** - "Regenerate my custom Gem" after changes
+- **Saves configuration** - No need to specify files again
+- Perfect for: rebranding, tech stack changes, design system updates
 - TypeScript support
 - Prop types and interfaces
 - Usage examples included
@@ -114,21 +129,37 @@ Add this power to your Kiro MCP configuration (`.kiro/settings/mcp.json`):
 @ui-designer-power create a button component in React with Tailwind CSS that supports primary, secondary, and ghost variants
 ```
 
-## Advanced: Using a Custom Gemini Gem
+## Model Configuration
 
-You can fine-tune Gemini for your specific design patterns:
+The power uses dual models for optimal performance:
 
-1. Create a Gem in [Google AI Studio](https://aistudio.google.com/)
-2. Train it with your design system documentation
-3. Add example prompts and responses
-4. Update the model name in `src/index.ts`:
-```typescript
-const model = genAI.getGenerativeModel({ 
-  model: "gemini-2.0-flash-exp",
-  // or use your custom gem
-  // model: "models/your-gem-id"
-});
+```bash
+# Option 1: Use a Custom Gemini Gem (recommended after creating one)
+GEMINI_GEM_ID=models/your-gem-id-here  # Overrides all other models
+
+# Option 2: Use default models (works out of the box)
+GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview  # Image generation
+GEMINI_MODEL=gemini-2.5-flash                  # Code generation
 ```
+
+### Using a Custom Gem
+
+After creating a custom Gem in Google AI Studio:
+1. Copy your Gem ID (looks like `models/gemini-...`)
+2. Set `GEMINI_GEM_ID` environment variable
+3. The power will use your custom Gem for all operations
+4. Your Gem will have your project's design patterns and code style built-in!
+
+### Available Models (when not using custom Gem)
+
+**Image Models:**
+- `gemini-3-pro-image-preview` - Most advanced, up to 14 images, 4K support (default)
+- `gemini-2.5-flash-image` - Fast alternative
+
+**Text Models:**
+- `gemini-2.5-flash` - Fast code generation (default)
+- `gemini-2.5-pro` - Highest quality
+- `gemini-3-pro-preview` - Most intelligent
 
 ## Steering Files
 
