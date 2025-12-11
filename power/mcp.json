@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "ui-designer": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "-e",
+                "GEMINI_API_KEY=${GEMINI_API_KEY}",
+                "smailg/ui-designer-power:latest"
+            ]
+        }
+    }
+}
