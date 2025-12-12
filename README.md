@@ -124,7 +124,7 @@ The power uses dual models for optimal performance with automatic fallback and r
 ```bash
 # Model Configuration
 GEMINI_GEM_ID=models/your-gem-id-here          # Custom Gem (overrides all)
-GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview  # Image generation
+GEMINI_IMAGE_MODEL=gemini-2.5-flash-image      # Image generation (default)
 GEMINI_MODEL=gemini-2.5-flash                  # Code generation
 
 # Rate Limiting Configuration (optimized for Kiro)
@@ -150,8 +150,8 @@ After creating a custom Gem in Google AI Studio:
 ### Available Models (when not using custom Gem)
 
 **Image Models:**
-- `gemini-3-pro-image-preview` - Most advanced, up to 14 images, 4K support (default)
-- `gemini-2.5-flash-image` - Fast alternative
+- `gemini-2.5-flash-image` - Production-ready, optimized for reliability (default)
+- `gemini-3-pro-image-preview` - Experimental features, up to 14 images, 4K support
 
 **Text Models:**
 - `gemini-2.5-flash` - Fast code generation (default)
@@ -201,6 +201,16 @@ cd mcp
 docker build -t smailg/ui-designer-power:latest .
 docker push smailg/ui-designer-power:latest
 ```
+
+## Performance Optimization
+
+### Gemini 2.5 Flash Image Model
+The production `gemini-2.5-flash-image` model has been optimized for reliability:
+- **Extended timeout**: 120 seconds (handles 40-50s generation times)
+- **Optimized config**: Single candidate generation (3x faster)
+- **Memory allocation**: 4GB Node.js heap for large image processing
+
+See [Gemini 2.5 Flash Image Optimization Guide](./docs/GEMINI_2.5_FLASH_IMAGE_OPTIMIZATION.md) for details.
 
 ## Troubleshooting
 

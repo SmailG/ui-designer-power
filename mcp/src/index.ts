@@ -18,16 +18,16 @@ if (!API_KEY) {
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 // Model selection - use the best available models
-// gemini-3-pro-image-preview for UI design generation (most advanced, creates actual images)
+// gemini-2.5-flash-image for UI design generation (production-ready, optimized for reliability)
 // gemini-2.5-flash for text-based code generation and analysis
 // Support custom Gemini Gems via GEMINI_GEM_ID
 const CUSTOM_GEM_ID = process.env.GEMINI_GEM_ID;
-const DEFAULT_IMAGE_MODEL = CUSTOM_GEM_ID || process.env.GEMINI_IMAGE_MODEL || "gemini-3-pro-image-preview";
+const DEFAULT_IMAGE_MODEL = CUSTOM_GEM_ID || process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 const DEFAULT_TEXT_MODEL = CUSTOM_GEM_ID || process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 // Fallback models for when primary models are overloaded
-// Note: gemini-2.5-flash-image supports image generation as fallback
-const FALLBACK_IMAGE_MODEL = "gemini-2.5-flash-image";
+// Note: gemini-3-pro-image-preview can be used as fallback for experimental features
+const FALLBACK_IMAGE_MODEL = "gemini-3-pro-image-preview";
 const FALLBACK_TEXT_MODEL = "gemini-2.0-flash-exp";
 
 // Rate limiting configuration
@@ -149,13 +149,26 @@ async function generateUIImage(prompt: string, preferredModel?: string, retryWit
 
     return executeWithRateLimit(async () => {
         try {
-            const response = await ai.models.generateContent({
+            // gemini-2.5-flash-image can take 40-50s for high-quality generation
+            const imageTimeout = 120000;
+
+            const generationPromise = ai.models.generateContent({
                 model: modelName,
                 contents: prompt,
                 config: {
                     responseModalities: ['TEXT', 'IMAGE'],
+                    candidateCount: 1,
+                    temperature: 1.0,
+                    maxOutputTokens: 8192,
                 },
             });
+
+            const response = await withTimeout(
+                generationPromise,
+                imageTimeout,
+                `Image generation timed out after ${imageTimeout}ms. The model may be processing a complex design.`
+            );
+
             return response;
         } catch (error) {
             // If overloaded and we haven't tried fallback yet, retry with fallback model

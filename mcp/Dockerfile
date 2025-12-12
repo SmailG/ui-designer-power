@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-LABEL version="1.1.5"
+LABEL version="1.1.6"
 LABEL description="UI Designer & Design-to-Code Kiro Power"
 
 WORKDIR /app

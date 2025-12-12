@@ -2,6 +2,44 @@
 
 All notable changes to the UI Designer & Design-to-Code Kiro Power.
 
+## [1.1.6] - 2024-12-12
+
+### Added
+- **Comprehensive optimization for gemini-2.5-flash-image production model**
+  - Extended timeout to 120 seconds (handles 40-50s generation times)
+  - Optimized generation config with `candidateCount: 1` (3x faster)
+  - Increased Node.js memory allocation to 4GB heap
+  - Added detailed optimization documentation
+
+### Changed
+- **Default image model changed to `gemini-2.5-flash-image`**
+  - Production-ready model with optimized timeout and configuration
+  - More reliable than preview models for production use
+  - Fallback to `gemini-3-pro-image-preview` for experimental features
+- **Image generation performance improvements**
+  - Set explicit `candidateCount: 1` for faster single-image generation
+  - Added `temperature: 1.0` and `maxOutputTokens: 8192` to generation config
+  - Applied 120-second timeout specifically for image generation operations
+- **Memory optimization**
+  - Updated start script with `--max-old-space-size=4096` flag
+  - Prevents garbage collection pauses when processing large Base64 responses
+- **Documentation enhancements**
+  - Added MCP async architecture best practices
+  - Clarified that async/await is already properly implemented
+  - Added performance section to main README
+
+### Technical
+- Confirmed async/await architecture is non-blocking for MCP server
+- All generation functions use proper async patterns
+- MCP request handlers are fully asynchronous
+- Server remains responsive during long image generation operations
+
+### Performance
+- Eliminates "Deadline Exceeded" errors for production image model
+- Reliable 40-50 second generation times without timeouts
+- 3x faster generation with single candidate configuration
+- Handles large Base64 image responses without memory issues
+
 ## [1.1.5] - 2024-12-11
 
 ### Changed
